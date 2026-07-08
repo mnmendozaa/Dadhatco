@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Editor Application</title>
+<style>
+  :root{
+    /* Dad Hat Co palette: black base, burnt-orange accent, cream text, brown lines */
+    --bg:#0c0b0a; --panel:#1c1712; --line:#3a2e20; --text:#f2e6c9; --muted:#a89a78;
+    --accent:#c1571f; --accent-dim:#3a2313; --good:#d9a441; --bad:#e2493a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.5;
+  }
+  .wrap{max-width:640px; margin:0 auto; padding:48px 24px 96px;}
+  .bar{position:sticky; top:0; background:var(--bg); padding:16px 0 20px; z-index:5;}
+  .bar-track{height:4px; background:var(--line); border-radius:4px; overflow:hidden;}
+  .bar-fill{height:100%; background:var(--accent); width:0%; transition:width .3s ease;}
+  .bar-label{font-size:12px; color:var(--muted); margin-top:8px; letter-spacing:.02em;}
+  h1{font-size:26px; margin:0 0 8px;}
+  h2{font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--accent); margin:0 0 4px;}
+  h3{font-size:20px; margin:0 0 16px;}
+  p.help{color:var(--muted); font-size:14px; margin-top:-8px; margin-bottom:16px;}
+  p.section-desc{color:var(--muted); font-size:14px; margin:0 0 28px;}
+  .step{display:none;}
+  .step.active{display:block; animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+  label.q{display:block; font-size:15px; font-weight:600; margin:0 0 6px;}
+  .field{margin-bottom:26px;}
+  input[type=text], input[type=email], input[type=number], input[type=date], select, textarea{
+    width:100%; padding:12px 14px; background:var(--panel); border:1px solid var(--line);
+    border-radius:8px; color:var(--text); font-size:15px; font-family:inherit;
+  }
+  textarea{min-height:96px; resize:vertical;}
+  input:focus, select:focus, textarea:focus{outline:none; border-color:var(--accent);}
+  .choices{display:flex; flex-direction:column; gap:8px;}
+  .choice{
+    display:flex; align-items:center; gap:10px; padding:12px 14px; background:var(--panel);
+    border:1px solid var(--line); border-radius:8px; cursor:pointer; font-size:15px;
+  }
+  .choice:hover{border-color:#3a3a40;}
+  .choice input{accent-color:var(--accent); width:16px; height:16px;}
+  .choice.selected{border-color:var(--accent); background:var(--accent-dim);}
+  .file-drop{
+    border:1.5px dashed var(--line); border-radius:8px; padding:24px; text-align:center;
+    color:var(--muted); font-size:14px; cursor:pointer;
+  }
+  .file-drop.has-file{border-color:var(--good); color:var(--good);}
+  .nav{display:flex; justify-content:space-between; margin-top:36px;}
+  button{
+    font-family:inherit; font-size:15px; font-weight:600; padding:12px 22px; border-radius:8px;
+    border:1px solid var(--line); background:transparent; color:var(--text); cursor:pointer;
+  }
+  button.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+  button.primary:disabled{opacity:.4; cursor:not-allowed;}
+  button.ghost{color:var(--muted);}
+  .error{color:var(--bad); font-size:13px; margin-top:6px; display:none;}
+  .gate-note{
+    margin-top:10px; padding:10px 12px; background:#241a12; border:1px solid #4a3720;
+    border-radius:8px; font-size:13px; color:#e0b25a; display:none;
+  }
+  .intro-video{
+    width:100%; aspect-ratio:16/9; border-radius:8px; border:1px solid var(--line); margin-bottom:20px;
+  }
+  .final{text-align:center; padding:60px 0;}
+  .final h3{font-size:24px;}
+  .final p{color:var(--muted); font-size:15px;}
+  .rate-scale{display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-top:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="bar">
+    <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+    <div class="bar-label" id="barLabel">Step 1 of 10</div>
+  </div>
+
+  <form id="appForm" novalidate>
+
+    <!-- STEP 0: INTRO -->
+    <div class="step active" data-step="0">
+      <h2>AI Editor Application</h2>
+      <h1>Thanks for your interest in joining as an AI editor.</h1>
+      <p class="section-desc">
+        In most cases, we'll hand you the script, the audio, and often a reference video we want
+        replicated. Your job is the visuals: breaking down the reference, generating matching
+        assets in your own Higgsfield account, and finishing in Premiere Pro / Photoshop, synced
+        to the audio we give you, without needing us to hover over every step. This form takes
+        about 15 to 20 minutes. We read every answer.
+      </p>
+      <!-- Optional: replace src with a Loom / Drive preview link explaining the role -->
+      <!-- <iframe class="intro-video" src="REPLACE_WITH_VIDEO_EMBED_URL" allowfullscreen></iframe> -->
+      <div class="nav">
+        <span></span>
+        <button type="button" class="primary" onclick="nextStep()">Start application →</button>
+      </div>
+    </div>
+
+    <!-- STEP 1: IDENTITY & LOCATION -->
+    <div class="step" data-step="1">
+      <h2>A · Identity &amp; Location</h2>
+      <h3>Basic contact, location, time zone, and work eligibility</h3>
+
+      <div class="field">
+        <label class="q">First name *</label>
+        <input type="text" name="first_name" required>
+      </div>
+      <div class="field">
+        <label class="q">Last name *</label>
+        <input type="text" name="last_name" required>
+      </div>
+      <div class="field">
+        <label class="q">Email address *</label>
+        <input type="email" name="email" required>
+      </div>
+      <div class="field">
+        <label class="q">WhatsApp or phone number (optional)</label>
+        <input type="text" name="phone">
+      </div>
+      <div class="field">
+        <label class="q">Country *</label>
+        <select name="country" required>
+          <option value="">Select country</option>
+          <option>United States</option><option>United Kingdom</option><option>Canada</option>
+          <option>Australia</option><option>Philippines</option><option>India</option>
+          <option>Nigeria</option><option>South Africa</option><option>Brazil</option>
+          <option>Mexico</option><option>Colombia</option><option>Argentina</option>
+          <option>Germany</option><option>France</option><option>Spain</option><option>Italy</option>
+          <option>Netherlands</option><option>Poland</option><option>Ukraine</option>
+          <option>Pakistan</option><option>Bangladesh</option><option>Indonesia</option>
+          <option>Vietnam</option><option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="q">City *</label>
+        <input type="text" name="city" required>
+      </div>
+      <div class="field">
+        <label class="q">Time zone *</label>
+        <select name="timezone" required>
+          <option value="">Select time zone</option>
+          <option>UTC −12:00</option><option>UTC −11:00</option><option>UTC −10:00 (Hawaii)</option>
+          <option>UTC −08:00 (Pacific)</option><option>UTC −07:00 (Mountain)</option>
+          <option>UTC −06:00 (Central)</option><option>UTC −05:00 (Eastern)</option>
+          <option>UTC −04:00 (Atlantic)</option><option>UTC −03:00</option>
+          <option>UTC 00:00 (GMT/London)</option><option>UTC +01:00 (CET)</option>
+          <option>UTC +02:00 (EET)</option><option>UTC +03:00 (EAT/Moscow)</option>
+          <option>UTC +04:00</option><option>UTC +05:00</option><option>UTC +05:30 (India)</option>
+          <option>UTC +06:00</option><option>UTC +07:00 (ICT)</option><option>UTC +08:00 (SGT/PHT)</option>
+          <option>UTC +09:00 (JST/KST)</option><option>UTC +10:00 (AEST)</option>
+          <option>UTC +11:00</option><option>UTC +12:00 (NZST)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="q">Are you legally able to work as an independent contractor in your country? *</label>
+        <div class="choices" data-radio="contractor_eligible">
+          <label class="choice"><input type="radio" name="contractor_eligible" value="Yes" required> Yes</label>
+          <label class="choice"><input type="radio" name="contractor_eligible" value="No"> No</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">Link to your portfolio, reel, or showcase *</label>
+        <p class="help">Notion page, personal site, or shareable Drive folder. No portfolio = no review.</p>
+        <input type="text" name="portfolio_link" required>
+      </div>
+      <div class="nav">
+        <button type="button" class="ghost" onclick="prevStep()">← Back</button>
+        <button type="button" class="primary" onclick="nextStep()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: LANGUAGE & COMMUNICATION -->
+    <div class="step" data-step="2">
+      <h2>B · Language &amp; Communication</h2>
+      <h3>Fluency in English is required for briefs, revisions, and calls</h3>
+
+      <div class="field">
+        <label class="q">Is English your native language? *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="english_native" value="Yes" required> Yes</label>
+          <label class="choice"><input type="radio" name="english_native" value="No"> No</label>
+          <label class="choice"><input type="radio" name="english_native" value="Bilingual native"> Bilingual native (English + one other)</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">Written English rating (1 to 5) *</label>
+        <input type="number" name="written_english" min="1" max="5" required>
+        <div class="rate-scale"><span>1: Basic</span><span>3: Workable</span><span>5: Native-level</span></div>
+      </div>
+      <div class="field">
+        <label class="q">Spoken English rating (1 to 5) *</label>
+        <input type="number" name="spoken_english" min="1" max="5" required>
+        <div class="rate-scale"><span>1: Basic</span><span>3: Workable</span><span>5: Native-level</span></div>
+      </div>
+      <div class="field">
+        <label class="q">Other languages you speak fluently (optional)</label>
+        <input type="text" name="other_languages">
+      </div>
+      <div class="field">
+        <label class="q">Are you comfortable on live video calls in English? *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="video_calls_ok" value="Yes" required> Yes</label>
+          <label class="choice"><input type="radio" name="video_calls_ok" value="No"> No</label>
+        </div>
+      </div>
+      <div class="nav">
+        <button type="button" class="ghost" onclick="prevStep()">← Back</button>
+        <button type="button" class="primary" onclick="nextStep()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: CONNECTIVITY -->
+    <div class="step" data-step="3">
+      <h2>C · Connectivity</h2>
+      <h3>Slow or unreliable internet is a hidden tax on the whole team</h3>
+
+      <div class="field">
+        <label class="q">Download speed (Mbps) *</label>
+        <p class="help">Run a test at speedtest.net before answering.</p>
+        <input type="number" name="download_speed" required>
+      </div>
+      <div class="field">
+        <label class="q">Upload speed (Mbps) *</label>
+        <p class="help">Upload speed matters more for large export files and AI generated assets.</p>
+        <input type="number" name="upload_speed" required>
+      </div>
+      <div class="field">
+        <label class="q">Speed test screenshot *</label>
+        <p class="help">Verifies the numbers above. No screenshot = hard disqualifier.</p>
+        <label class="file-drop" id="fileDrop">
+          <input type="file" name="speedtest_screenshot" accept="image/*" style="display:none" required onchange="handleFile(this)">
+          <span id="fileDropText">Click to upload or drag and drop. PNG, JPG, WEBP accepted</span>
+        </label>
+      </div>
+      <div class="field">
+        <label class="q">How reliable is your internet connection? *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="internet_reliability" value="Stable 24/7" required> Stable 24/7 with rare interruptions</label>
+          <label class="choice"><input type="radio" name="internet_reliability" value="Occasional dropouts"> Occasional dropouts (1 to 2 per week)</label>
+          <label class="choice"><input type="radio" name="internet_reliability" value="Frequent issues"> Frequent issues (multiple per week)</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">Do you have a backup internet option (hotspot, second ISP, etc.)? *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="backup_internet" value="Yes" required> Yes</label>
+          <label class="choice"><input type="radio" name="backup_internet" value="No"> No</label>
+        </div>
+      </div>
+      <div class="nav">
+        <button type="button" class="ghost" onclick="prevStep()">← Back</button>
+        <button type="button" class="primary" onclick="nextStep()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: AI TOOLS & SOFTWARE (GATE) -->
+    <div class="step" data-step="4">
+      <h2>D · AI Tools &amp; Software</h2>
+      <h3>This is the core of the role: generation plus finishing</h3>
+
+      <div class="field">
+        <label class="q">Do you currently have your own active Higgsfield account? *</label>
+        <p class="help">This is where you'll generate assets. Required. We don't provide seats.</p>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="higgsfield_account" value="Yes, active account" required onchange="checkGates()"> Yes, active account</label>
+          <label class="choice"><input type="radio" name="higgsfield_account" value="No, but willing to set one up" onchange="checkGates()"> No, but willing to set one up before starting</label>
+          <label class="choice"><input type="radio" name="higgsfield_account" value="No" onchange="checkGates()"> No</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">How would you rate your fluency generating usable output with Higgsfield (or comparable tools like Runway, Pika, Kling, Sora)? *</label>
+        <input type="number" name="ai_gen_fluency" min="1" max="5" required>
+        <div class="rate-scale"><span>1: Never used</span><span>3: Comfortable</span><span>5: Power user</span></div>
+      </div>
+      <div class="field">
+        <label class="q">AI generation tools you've actually used (select all that apply) *</label>
+        <div class="choices">
+          <label class="choice"><input type="checkbox" name="ai_tools" value="Higgsfield"> Higgsfield</label>
+          <label class="choice"><input type="checkbox" name="ai_tools" value="Runway"> Runway</label>
+          <label class="choice"><input type="checkbox" name="ai_tools" value="Pika"> Pika</label>
+          <label class="choice"><input type="checkbox" name="ai_tools" value="Kling"> Kling</label>
+          <label class="choice"><input type="checkbox" name="ai_tools" value="Sora"> Sora</label>
+          <label class="choice"><input type="checkbox" name="ai_tools" value="Midjourney/Stable Diffusion"> Midjourney / Stable Diffusion</label>
+          <label class="choice"><input type="checkbox" name="ai_tools" value="ElevenLabs"> ElevenLabs (AI voice)</label>
+          <label class="choice"><input type="checkbox" name="ai_tools" value="Topaz"> Topaz (AI upscale)</label>
+          <label class="choice"><input type="checkbox" name="ai_tools" value="Other"> Other</label>
+        </div>
+        <div class="error" id="err-ai_tools">Please select at least one.</div>
+      </div>
+      <div class="field">
+        <label class="q">Traditional editing/finishing software fluency (select all that apply) *</label>
+        <div class="choices">
+          <label class="choice"><input type="checkbox" name="editing_software" value="Premiere Pro"> Adobe Premiere Pro</label>
+          <label class="choice"><input type="checkbox" name="editing_software" value="Photoshop"> Adobe Photoshop</label>
+          <label class="choice"><input type="checkbox" name="editing_software" value="After Effects"> Adobe After Effects</label>
+          <label class="choice"><input type="checkbox" name="editing_software" value="DaVinci Resolve"> DaVinci Resolve</label>
+          <label class="choice"><input type="checkbox" name="editing_software" value="Final Cut Pro"> Final Cut Pro</label>
+          <label class="choice"><input type="checkbox" name="editing_software" value="CapCut Pro"> CapCut Pro</label>
+          <label class="choice"><input type="checkbox" name="editing_software" value="Other"> Other</label>
+        </div>
+        <div class="error" id="err-editing_software">Please select at least one.</div>
+      </div>
+      <div class="field">
+        <label class="q">Years using Premiere Pro *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="premiere_years" value="Less than 1" required> Less than 1</label>
+          <label class="choice"><input type="radio" name="premiere_years" value="1 to 2 years"> 1 to 2 years</label>
+          <label class="choice"><input type="radio" name="premiere_years" value="3 to 5 years"> 3 to 5 years</label>
+          <label class="choice"><input type="radio" name="premiere_years" value="5+ years"> 5+ years</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">Years using Photoshop *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="photoshop_years" value="Less than 1" required> Less than 1</label>
+          <label class="choice"><input type="radio" name="photoshop_years" value="1 to 2 years"> 1 to 2 years</label>
+          <label class="choice"><input type="radio" name="photoshop_years" value="3 to 5 years"> 3 to 5 years</label>
+          <label class="choice"><input type="radio" name="photoshop_years" value="5+ years"> 5+ years</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">Computer specs (RAM, storage, CPU) *</label>
+        <input type="text" name="computer_specs" placeholder="e.g. M2 Pro Mac, 32GB RAM, 1TB SSD" required>
+      </div>
+      <div class="gate-note" id="gateNote">
+        Heads up: an active Higgsfield account is required for this role. You can still finish the
+        application, but flag this honestly; we'd rather know now.
+      </div>
+      <div class="nav">
+        <button type="button" class="ghost" onclick="prevStep()">← Back</button>
+        <button type="button" class="primary" onclick="nextStep()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 5: EXPERIENCE & PORTFOLIO -->
+    <div class="step" data-step="5">
+      <h2>E · Experience &amp; Portfolio</h2>
+      <h3>Proof you can actually produce with these tools</h3>
+
+      <div class="field">
+        <label class="q">Years creating AI generated or AI assisted video content *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="ai_video_years" value="Less than 1" required> Less than 1</label>
+          <label class="choice"><input type="radio" name="ai_video_years" value="1 to 2 years"> 1 to 2 years</label>
+          <label class="choice"><input type="radio" name="ai_video_years" value="3 to 5 years"> 3 to 5 years</label>
+          <label class="choice"><input type="radio" name="ai_video_years" value="5+ years"> 5+ years</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">AI generated or AI assisted deliverables shipped for paid work *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="deliverables_count" value="Fewer than 20" required> Fewer than 20</label>
+          <label class="choice"><input type="radio" name="deliverables_count" value="20 to 100"> 20 to 100</label>
+          <label class="choice"><input type="radio" name="deliverables_count" value="100 to 300"> 100 to 300</label>
+          <label class="choice"><input type="radio" name="deliverables_count" value="300+"> 300+</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">Niches you've worked in (select all that apply) *</label>
+        <div class="choices">
+          <label class="choice"><input type="checkbox" name="niches" value="SaaS/Tech"> SaaS / Tech</label>
+          <label class="choice"><input type="checkbox" name="niches" value="Founder content"> Founder content</label>
+          <label class="choice"><input type="checkbox" name="niches" value="Testimonials"> Testimonials &amp; customer stories</label>
+          <label class="choice"><input type="checkbox" name="niches" value="Coaching"> Coaching</label>
+          <label class="choice"><input type="checkbox" name="niches" value="Ads/Marketing"> Ads / Marketing</label>
+          <label class="choice"><input type="checkbox" name="niches" value="Personal brand"> Personal brand</label>
+          <label class="choice"><input type="checkbox" name="niches" value="Other"> Other</label>
+        </div>
+        <div class="error" id="err-niches">Please select at least one.</div>
+      </div>
+      <div class="field">
+        <label class="q">Paste 2 to 3 links to your best AI generated or AI assisted work and explain in one sentence why you chose each. *</label>
+        <p class="help">Looking for taste and self awareness, not just technical polish.</p>
+        <textarea name="best_work_links" required></textarea>
+      </div>
+      <div class="field">
+        <label class="q">Have you worked on B2B, SaaS, or brand messaging content before? If yes, which brand(s)? (optional)</label>
+        <textarea name="brand_experience"></textarea>
+      </div>
+      <div class="nav">
+        <button type="button" class="ghost" onclick="prevStep()">← Back</button>
+        <button type="button" class="primary" onclick="nextStep()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 6: WORKFLOW & INDEPENDENCE -->
+    <div class="step" data-step="6">
+      <h2>F · Workflow &amp; Independence</h2>
+      <h3>Given a reference, a script, and audio: can you build the visuals yourself?</h3>
+
+      <div class="field">
+        <label class="q">Walk us through your workflow when you're given a reference video to replicate, plus a fixed script and audio track, and your job is only the visuals. *</label>
+        <p class="help">Be specific: how you break down the reference (shot types, pacing, style), what you generate in Higgsfield to match it, how you finish and sync to the given audio in Premiere/Photoshop, file organization, QC, delivery method.</p>
+        <textarea name="workflow_description" required></textarea>
+      </div>
+      <div class="field">
+        <label class="q">Describe a real time you had to replicate someone else's video style/idea using assets you generated yourself, working from a script or audio you didn't write. What creative decisions were yours to make, and how did you make them? *</label>
+        <p class="help">This is the question that matters most for this role.</p>
+        <textarea name="independence_example" required></textarea>
+      </div>
+      <div class="field">
+        <label class="q">How do you decide when an AI generated asset is "good enough to ship" versus needs another generation pass? *</label>
+        <textarea name="qc_judgment" required></textarea>
+      </div>
+      <div class="field">
+        <label class="q">How do you handle a revision round where you disagree with the note? *</label>
+        <p class="help">Looking for: pushes back with reasoning, not ego.</p>
+        <textarea name="revision_handling" required></textarea>
+      </div>
+      <div class="field">
+        <label class="q">How do you keep visual/style consistency across multiple assets in the same project? *</label>
+        <textarea name="consistency_approach" required></textarea>
+      </div>
+      <div class="nav">
+        <button type="button" class="ghost" onclick="prevStep()">← Back</button>
+        <button type="button" class="primary" onclick="nextStep()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 7: STRATEGIC / CREATIVE THINKING -->
+    <div class="step" data-step="7">
+      <h2>G · Strategic Thinking</h2>
+      <h3>Separates technical operators from editors with taste</h3>
+
+      <div class="field">
+        <label class="q">What's the difference between a hook and just an opening? *</label>
+        <textarea name="hook_vs_opening" required></textarea>
+      </div>
+      <div class="field">
+        <label class="q">When would you NOT use an AI generated shot, even if you could easily make one? *</label>
+        <textarea name="when_not_ai" required></textarea>
+      </div>
+      <div class="field">
+        <label class="q">What's the most important thing to get right in the first 3 seconds of a short form video? *</label>
+        <textarea name="first_3_seconds" required></textarea>
+      </div>
+      <div class="field">
+        <label class="q">Which AI native creator or editor's style do you most admire, and why? *</label>
+        <p class="help">Be specific about pacing, visual style, and sound, not just "they're cool."</p>
+        <textarea name="admired_style" required></textarea>
+      </div>
+      <div class="nav">
+        <button type="button" class="ghost" onclick="prevStep()">← Back</button>
+        <button type="button" class="primary" onclick="nextStep()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 8: PRACTICAL MINI-EXERCISE -->
+    <div class="step" data-step="8">
+      <h2>H · Practical Mini Exercise</h2>
+      <h3>The sharpest filter in the form</h3>
+
+      <div class="field">
+        <label class="q">Scenario: We send you a video we like and say "replicate this." We also give you the exact script and a finished audio/VO track to use. Your job is only the visuals. Walk us through exactly how you'd break down the reference video (shots, pacing, style), what you'd generate in Higgsfield to match it, and how you'd assemble and sync it to our audio in Premiere/Photoshop. *</label>
+        <textarea name="brief_execution_exercise" required></textarea>
+      </div>
+      <div class="field">
+        <label class="q">Spot every issue in the caption below and explain why each is wrong. *</label>
+        <p class="help">There are at least 5 distinct issues.</p>
+        <p style="font-style:italic; color:var(--muted);">"AI editing lets you create scenes that dont exist in real life,, its basically magic for content creators in 2026."</p>
+        <textarea name="caption_exercise" required></textarea>
+      </div>
+      <div class="nav">
+        <button type="button" class="ghost" onclick="prevStep()">← Back</button>
+        <button type="button" class="primary" onclick="nextStep()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 9: AVAILABILITY & COMMERCIAL -->
+    <div class="step" data-step="9">
+      <h2>I · Availability &amp; Commercial</h2>
+      <h3>Capacity, timing, and rate: better to know upfront</h3>
+
+      <div class="field">
+        <label class="q">How many finished AI generated or edited assets can you reliably deliver per week? *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="weekly_output" value="1 to 3" required> 1 to 3</label>
+          <label class="choice"><input type="radio" name="weekly_output" value="4 to 7"> 4 to 7</label>
+          <label class="choice"><input type="radio" name="weekly_output" value="8 to 12"> 8 to 12</label>
+          <label class="choice"><input type="radio" name="weekly_output" value="More than 12"> More than 12</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">Earliest available start date *</label>
+        <input type="date" name="start_date" required>
+      </div>
+      <div class="field">
+        <label class="q">Hours of overlap with US Pacific Time (9 AM to 5 PM PT) *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="pt_overlap" value="Less than 2 hrs" required> Less than 2 hrs</label>
+          <label class="choice"><input type="radio" name="pt_overlap" value="2 to 4 hrs"> 2 to 4 hrs</label>
+          <label class="choice"><input type="radio" name="pt_overlap" value="4 to 6 hrs"> 4 to 6 hrs</label>
+          <label class="choice"><input type="radio" name="pt_overlap" value="Full overlap"> Full overlap</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">Do you currently have other ongoing clients? If yes, describe your weekly load. *</label>
+        <textarea name="other_clients" required></textarea>
+      </div>
+      <div class="field">
+        <label class="q">Typical rate: choose the format you usually work in *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="rate_format" value="Per video/edit" required> Per video / per edit</label>
+          <label class="choice"><input type="radio" name="rate_format" value="Hourly"> Hourly</label>
+          <label class="choice"><input type="radio" name="rate_format" value="Monthly retainer"> Monthly retainer</label>
+          <label class="choice"><input type="radio" name="rate_format" value="Open to discussion"> Open to discussion</label>
+        </div>
+      </div>
+      <div class="nav">
+        <button type="button" class="ghost" onclick="prevStep()">← Back</button>
+        <button type="button" class="primary" onclick="nextStep()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- STEP 10: ACKNOWLEDGEMENTS & CLOSE -->
+    <div class="step" data-step="10">
+      <h2>J · Acknowledgements &amp; Close</h2>
+      <h3>Commitments, drawn directly from what we require</h3>
+
+      <div class="field">
+        <label class="q">You'll maintain your own active Higgsfield account (and cover its cost) for the duration of this work. *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="ack_higgsfield" value="Yes, confirmed" required> Yes, confirmed</label>
+          <label class="choice"><input type="radio" name="ack_higgsfield" value="No"> No</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">Zero caption or spelling errors, no exceptions. Are you fully comfortable working to that standard? *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="ack_captions" value="Yes, fully committed" required> Yes, fully committed</label>
+          <label class="choice"><input type="radio" name="ack_captions" value="No"> No</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">Approved delivery channels only: Google Drive or Frame.io. Confirm you'll deliver via these only. *</label>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="ack_delivery" value="Yes, confirmed" required> Yes, confirmed</label>
+          <label class="choice"><input type="radio" name="ack_delivery" value="No"> No</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="q">Anything else you'd like us to know? (optional)</label>
+        <textarea name="anything_else"></textarea>
+      </div>
+      <div class="nav">
+        <button type="button" class="ghost" onclick="prevStep()">← Back</button>
+        <button type="submit" class="primary" id="submitBtn">Submit Application →</button>
+      </div>
+    </div>
+
+  </form>
+
+  <!-- FINAL SCREENS -->
+  <div class="step final" id="finalSuccess" data-step="final">
+    <h3>Application submitted</h3>
+    <p>Thanks for taking the time to apply. We read every submission carefully. Expect to hear from
+       us within 5 business days, regardless of outcome. If we move forward, we'll send a short
+       interview confirmation with everything you need to prepare.</p>
+  </div>
+
+  <div class="step final" id="finalError" data-step="final-error">
+    <h3>Something went wrong</h3>
+    <p>Your application didn't submit. Please try again, or reach out directly if this keeps happening.</p>
+    <button type="button" class="primary" onclick="retrySubmit()">Try again</button>
+  </div>
+
+</div>
+
+<script>
+  // ── CONFIG ───────────────────────────────────────────────────────────────
+  // Replace this with your new Formspree form endpoint, e.g.
+  // https://formspree.io/f/xxxxabcd
+  const FORMSPREE_ENDPOINT = "REPLACE_WITH_YOUR_FORMSPREE_ENDPOINT";
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const steps = Array.from(document.querySelectorAll('.step[data-step]:not([data-step="final"]):not([data-step="final-error"])'));
+  let current = 0;
+
+  function showStep(i){
+    steps.forEach((s, idx) => s.classList.toggle('active', idx === i));
+    const pct = Math.round((i / (steps.length - 1)) * 100);
+    document.getElementById('barFill').style.width = pct + '%';
+    document.getElementById('barLabel').textContent = i === 0
+      ? 'Introduction'
+      : `Step ${i} of ${steps.length - 1}`;
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function validateStep(i){
+    const stepEl = steps[i];
+    const requiredEls = stepEl.querySelectorAll('[required]');
+    for (const el of requiredEls){
+      if (el.type === 'radio'){
+        const group = stepEl.querySelectorAll(`input[name="${el.name}"]`);
+        const checked = Array.from(group).some(r => r.checked);
+        if (!checked){ alert('Please answer all required questions before continuing.'); return false; }
+      } else if (el.type === 'file'){
+        if (el.files.length === 0){ alert('Please upload the required file.'); return false; }
+      } else if (!el.value || !el.value.trim()){
+        el.focus();
+        alert('Please answer all required questions before continuing.');
+        return false;
+      }
+    }
+    // checkbox groups marked required-at-least-one via data attribute
+    const checkboxGroups = {};
+    stepEl.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      checkboxGroups[cb.name] = checkboxGroups[cb.name] || [];
+      checkboxGroups[cb.name].push(cb);
+    });
+    for (const name in checkboxGroups){
+      const anyChecked = checkboxGroups[name].some(cb => cb.checked);
+      const errEl = document.getElementById('err-' + name);
+      if (!anyChecked){
+        if (errEl) errEl.style.display = 'block';
+        return false;
+      } else if (errEl) {
+        errEl.style.display = 'none';
+      }
+    }
+    return true;
+  }
+
+  function nextStep(){
+    if (current > 0 && !validateStep(current)) return;
+    if (current < steps.length - 1){
+      current++;
+      showStep(current);
+    }
+  }
+  function prevStep(){
+    if (current > 0){ current--; showStep(current); }
+  }
+
+  function checkGates(){
+    const val = document.querySelector('input[name="higgsfield_account"]:checked')?.value;
+    const note = document.getElementById('gateNote');
+    note.style.display = (val === 'No') ? 'block' : 'none';
+  }
+
+  function handleFile(input){
+    const drop = document.getElementById('fileDrop');
+    const text = document.getElementById('fileDropText');
+    if (input.files.length){
+      drop.classList.add('has-file');
+      text.textContent = 'Selected: ' + input.files[0].name;
+    }
+  }
+
+  const form = document.getElementById('appForm');
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    if (!validateStep(current)) return;
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting…';
+
+    const formData = new FormData(form);
+
+    try {
+      const res = await fetch(FORMSPREE_ENDPOINT, {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json' }
+      });
+      if (res.ok){
+        steps.forEach(s => s.classList.remove('active'));
+        document.getElementById('finalSuccess').classList.add('active');
+        document.querySelector('.bar').style.display = 'none';
+      } else {
+        throw new Error('Submission failed');
+      }
+    } catch (err){
+      steps.forEach(s => s.classList.remove('active'));
+      document.getElementById('finalError').classList.add('active');
+      document.querySelector('.bar').style.display = 'none';
+    }
+  });
+
+  function retrySubmit(){
+    document.getElementById('finalError').classList.remove('active');
+    showStep(steps.length - 1);
+    document.querySelector('.bar').style.display = 'block';
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Application →';
+  }
+
+  showStep(0);
+</script>
+</body>
+</html>
